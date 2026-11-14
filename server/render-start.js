@@ -27,6 +27,13 @@ const handler = createHandler({
 });
 
 const server = createServer((req, res) => {
+  // ── Immediate Health Checks ─────────────────────────────────────────
+  if (req.url === '/health' || req.url === '/api/health') {
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ status: 'ok', uptime: process.uptime() }));
+    return;
+  }
+
   // ── CORS ──────────────────────────────────────────────────────────
   const origin = req.headers.origin;
   const allowed = allowedOrigin === '*'
