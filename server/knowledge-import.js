@@ -385,7 +385,7 @@ export function createModelDrafter(config = {}, { fetchImpl = null } = {}) {
       const clean = scrubPII(sourceText).text.slice(0, 12000);
       const response = await call(url, {
         method: 'POST',
-        signal: AbortSignal.timeout(20000),
+        signal: AbortSignal.timeout(10000),
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + config.OPENAI_API_KEY },
         body: JSON.stringify({
           model,
@@ -407,9 +407,23 @@ export function createModelDrafter(config = {}, { fetchImpl = null } = {}) {
     },
   };
 }
+async function mapConcurrent(items, concurrency, fn) {
+  const results = new Array(items.length);
+  let nextIdx = 0;
+  async function worker() {
+    while (nextIdx < items.length) {
+      const idx = nextIdx++;
+      results[idx] = await fn(items[idx], idx);
+    }
+  }
+  const workers = Array.from({ length: Math.min(concurrency, items.length) }, worker);
+  await Promise.all(workers);
+  return results;
+}
+
 /** Prefer the model's structure when it is grounded; fall back to the rule draft for anything it could not support. */
-async function improve(drafter, ruleDraft, sourceText, kind, budget) {
-  if (!drafter || budget.left <= 0) return ruleDraft;
+async function improve(drafter, ruleDraft, sourceText, kind, budget, startTime = 0) {
+  if (!drafter || budget.left <= 0 || (startTime && Date.now() - startTime > 25000)) return ruleDraft;
   budget.left--;
   let m;
   try { m = await drafter.draft(sourceText, kind); } catch { budget.failed++; return { ...ruleDraft, issues: [...ruleDraft.issues, 'the model was unavailable, so this was drafted by rules'] }; }
@@ -435,26 +449,29 @@ export function createKnowledgeImport(store, config = {}, { fetchImpl = null } =
     if (!['articles', 'tickets'].includes(kind)) throw fault(400, 'Choose help articles or past tickets.');
     if (!Array.isArray(files) || !files.length || files.length > MAX_FILES) throw fault(400, `Add 1 to ${MAX_FILES} files or paste some text.`);
     const budget = { left: modelBudget, failed: 0 };
+    const startTime = Date.now();
     const drafts = [], skipped = [], read = [];
     for (const f of files) {
       const { name, ext, text } = fileText(f);
       if (kind === 'articles') {
-        const articles = splitArticles(text);
+        const articles = splitArticles(text).slice(0, MAX_DRAFTS - drafts.length);
         read.push({ name, items: articles.length });
-        for (const a of articles) {
-          if (drafts.length >= MAX_DRAFTS) break;
-          drafts.push(await improve(drafter, draftArticle(a, { name }), a, 'article', budget));
-        }
+        const improved = await mapConcurrent(articles, 5, (a) =>
+          improve(drafter, draftArticle(a, { name }), a, 'article', budget, startTime)
+        );
+        drafts.push(...improved);
       } else {
         const parsed = parseTickets(text, ext);
         read.push({ name, items: parsed.tickets.length + parsed.skipped.length, columns: parsed.columns });
         skipped.push(...parsed.skipped.map((s) => ({ ...s, file: name })));
-        for (const d of mergeTicketDrafts(parsed.tickets.map(draftTicket))) {
-          if (drafts.length >= MAX_DRAFTS) break;
+        const merged = mergeTicketDrafts(parsed.tickets.map(draftTicket)).slice(0, MAX_DRAFTS - drafts.length);
+        const improved = await mapConcurrent(merged, 5, async (d) => {
           const source = [d.symptoms, d.steps.join(' '), d.appliesTo].join('\n');
-          drafts.push({ ...(await improve(drafter, d, source, 'ticket', budget)), sourceName: name });
-        }
+          return { ...(await improve(drafter, d, source, 'ticket', budget, startTime)), sourceName: name };
+        });
+        drafts.push(...improved);
       }
+      if (drafts.length >= MAX_DRAFTS) break;
     }
     for (const d of drafts) {
       d.alreadyImported = Boolean(d.steps.length && sql.prepare('SELECT 1 FROM memory_pool WHERE company_id=? AND source_key=?').get(companyId, sourceKey(chatbotId, d)));
