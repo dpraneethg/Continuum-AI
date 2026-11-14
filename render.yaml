@@ -1,0 +1,28 @@
+# Render Blueprint — Continuum API backend
+# https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: continuum-api
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node server/render-start.js
+    healthCheckPath: /api/demo/state
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: APP_URL
+        fromRenderService:
+          type: web
+          name: continuum-api
+          property: host
+      - key: FRONTEND_URL
+        value: https://continuum-ai-six.vercel.app
+      - key: ENABLE_OUTBOX_WORKER
+        value: "true"
+      - key: DATABASE_FILE
+        value: /opt/render/project/src/data/continuum.sqlite
+    disk:
+      name: continuum-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1

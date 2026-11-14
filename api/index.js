@@ -1,0 +1,71 @@
+// Vercel Serverless Function — serves HTML pages with meta injection.
+// API calls are handled by Vercel rewrites → Render backend (see vercel.json).
+import { readFile } from 'node:fs/promises';
+
+const pageMeta = {
+  '/': ['Continuum — Support that remembers what works', 'Fixes your customers confirm and your team reviews become trusted answers for the next customer. Company-private, clearly labelled and safe by default.'],
+  '/services': ['Product — Continuum', 'One calm workspace for every support request: the conversation, the customer\'s context and every answer labelled with where it came from.'],
+  '/about': ['How it works — Continuum', 'A customer reports a problem, a specialist solves it, the customer confirms, and the next customer with the same problem gets the verified fix.'],
+  '/pricing': ['Pricing — Continuum', 'Simple per-seat plans for support teams of every size. Request access and we will set up your workspace with you.'],
+  '/book-a-session': ['Book a call — Continuum', 'Choose a time for a 30-minute walkthrough of Continuum with your own support scenarios.'],
+  '/demo': ['Interactive demo — Continuum', 'Watch one customer\'s confirmed fix become the answer for the next customer, in a two-minute interactive walkthrough.'],
+  '/privacy': ['Privacy — Continuum', 'What Continuum stores, why, how personal details are removed before anything is reused, and how to ask for your data.'],
+  '/terms': ['Terms — Continuum', 'The terms that apply to using Continuum during early access.'],
+  '/security': ['Security — Continuum', 'How Continuum keeps each company\'s knowledge separate, protects accounts and handles secrets.'],
+};
+const privatePaths = new Set(['/desk', '/team', '/operator', '/style-guide']);
+const escapeAttr = (v) => String(v).replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+
+const htmlRoutes = new Set([
+  '/', '/about', '/services', '/pricing', '/book-a-session', '/style-guide',
+  '/team', '/operator', '/desk', '/demo', '/privacy', '/terms', '/security',
+]);
+
+let indexHtml, demoHtml;
+async function loadHtml(name) {
+  return (await readFile(new URL('../web/' + name, import.meta.url))).toString();
+}
+
+export default async function handler(req, res) {
+  const url = new URL(req.url, `https://${req.headers.host || 'localhost'}`);
+  const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : url.pathname;
+  const origin = process.env.APP_URL || `https://${process.env.VERCEL_URL || 'localhost'}`;
+
+  // robots.txt / sitemap.xml
+  if (path === '/robots.txt') {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    return res.end(['User-agent: *', 'Disallow: /desk', 'Disallow: /team', 'Disallow: /operator', 'Disallow: /api/', `Sitemap: ${origin}/sitemap.xml`, ''].join('\n'));
+  }
+  if (path === '/sitemap.xml') {
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    return res.end(['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', ...Object.keys(pageMeta).map((p) => `  <url><loc>${escapeAttr(origin + p)}</loc></url>`), '</urlset>', ''].join('\n'));
+  }
+
+  // HTML page routes
+  if (htmlRoutes.has(path)) {
+    const templateName = path === '/demo' ? 'demo.html' : 'index.html';
+    if (templateName === 'demo.html') {
+      demoHtml ??= await loadHtml('demo.html');
+    } else {
+      indexHtml ??= await loadHtml('index.html');
+    }
+    let html = templateName === 'demo.html' ? demoHtml : indexHtml;
+    const [title, description] = pageMeta[path] || ['Your workspace — Continuum', 'Sign in to your Continuum support workspace.'];
+    html = html
+      .replaceAll('%TITLE%', escapeAttr(title))
+      .replaceAll('%DESCRIPTION%', escapeAttr(description))
+      .replaceAll('%URL%', escapeAttr(origin + path))
+      .replaceAll('%ORIGIN%', escapeAttr(origin));
+    if (privatePaths.has(path) || !pageMeta[path]) {
+      html = html.replace('</head>', '  <meta name="robots" content="noindex">\n</head>');
+    }
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.setHeader('Cache-Control', 'no-cache');
+    return res.end(html);
+  }
+
+  // Fallback
+  res.statusCode = 404;
+  res.setHeader('Content-Type', 'text/plain');
+  res.end('Not found');
+}
