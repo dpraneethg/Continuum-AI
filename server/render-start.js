@@ -22,6 +22,7 @@ const handler = createHandler({
   config: {
     ...process.env,
     APP_URL: appUrl,
+    REQUIRE_EMAIL_VERIFICATION: process.env.REQUIRE_EMAIL_VERIFICATION ?? (process.env.RESEND_API_KEY ? 'true' : 'false'),
     ENABLE_OUTBOX_WORKER: process.env.ENABLE_OUTBOX_WORKER ?? 'true',
   },
 });

@@ -17,5 +17,7 @@ services:
         value: https://continuum-ai-six.vercel.app
       - key: ENABLE_OUTBOX_WORKER
         value: "true"
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "false"
       - key: DATABASE_FILE
         value: ./data/continuum.sqlite

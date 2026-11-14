@@ -57,7 +57,8 @@ export function createAuth(store, config, delivery, companies) {
   const demoEnabled = config.ENABLE_DEMO_MODE === 'true' && config.NODE_ENV !== 'production';
   const demoSignIn = demoSignInHints(config);
   const verificationRequired =
-    config.NODE_ENV === 'production' || config.REQUIRE_EMAIL_VERIFICATION === 'true';
+    config.REQUIRE_EMAIL_VERIFICATION === 'true' ||
+    (config.NODE_ENV === 'production' && config.REQUIRE_EMAIL_VERIFICATION !== 'false');
   const lifetime = 7 * 86400000;
   const cookie = (token, clear = false) =>
     `${cookieName}=${clear ? '' : token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${clear ? 0 : lifetime / 1000}${secure ? '; Secure' : ''}`;
