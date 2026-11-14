@@ -1,5 +1,4 @@
-// Vercel Serverless Function — serves HTML pages with meta injection.
-// API calls are handled by Vercel rewrites → Render backend (see vercel.json).
+// Vercel Serverless Function — serves HTML pages with meta injection and proxies API to Render.
 import { readFile } from 'node:fs/promises';
 
 const pageMeta = {
@@ -31,7 +30,48 @@ export default async function handler(req, res) {
   const path = url.pathname.length > 1 ? url.pathname.replace(/\/+$/, '') : url.pathname;
   const origin = process.env.APP_URL || `https://${process.env.VERCEL_URL || 'localhost'}`;
 
-  // robots.txt / sitemap.xml
+  // ── Proxy API requests to Render backend ───────────────────────
+  if (path.startsWith('/api/')) {
+    const backend = (process.env.RENDER_BACKEND_URL || '').replace(/\/+$/, '');
+    if (!backend) {
+      res.statusCode = 503;
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(JSON.stringify({
+        error: 'Backend is being configured. Please set RENDER_BACKEND_URL on Vercel.',
+        status: 'PENDING_CONFIG'
+      }));
+    }
+    try {
+      const targetUrl = backend + url.pathname + url.search;
+      const headers = {};
+      for (const [k, v] of Object.entries(req.headers)) {
+        if (k.toLowerCase() === 'host') continue;
+        headers[k] = v;
+      }
+      headers.host = new URL(backend).host;
+
+      const upstream = await fetch(targetUrl, {
+        method: req.method,
+        headers,
+        body: ['GET', 'HEAD'].includes(req.method) ? undefined : req,
+        duplex: 'half',
+        redirect: 'manual',
+      });
+      res.statusCode = upstream.status;
+      for (const [k, v] of upstream.headers) {
+        if (k.toLowerCase() === 'transfer-encoding') continue;
+        res.setHeader(k, v);
+      }
+      const buf = Buffer.from(await upstream.arrayBuffer());
+      return res.end(buf);
+    } catch (err) {
+      res.statusCode = 502;
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(JSON.stringify({ error: 'Failed to contact Render backend.', details: err.message }));
+    }
+  }
+
+  // ── SEO & Bot routes ───────────────────────────────────────────
   if (path === '/robots.txt') {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     return res.end(['User-agent: *', 'Disallow: /desk', 'Disallow: /team', 'Disallow: /operator', 'Disallow: /api/', `Sitemap: ${origin}/sitemap.xml`, ''].join('\n'));
@@ -41,7 +81,7 @@ export default async function handler(req, res) {
     return res.end(['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">', ...Object.keys(pageMeta).map((p) => `  <url><loc>${escapeAttr(origin + p)}</loc></url>`), '</urlset>', ''].join('\n'));
   }
 
-  // HTML page routes
+  // ── HTML page routes ───────────────────────────────────────────
   if (htmlRoutes.has(path)) {
     const templateName = path === '/demo' ? 'demo.html' : 'index.html';
     if (templateName === 'demo.html') {
