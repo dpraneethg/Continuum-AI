@@ -22,7 +22,11 @@ export async function request(route, { body, method, key, timeout = 55000 } = {}
   } catch (error) {
     throw new Error(error.name === 'TimeoutError' ? 'This is taking longer than expected. Retry to check your submission safely.' : 'Unable to connect. Check your connection and try again.');
   }
-  const result = await response.json().catch(() => ({ error: 'The server sent an unexpected response. Please try again.' }));
+  const result = await response.json().catch(() => ({
+    error: response.status >= 500
+      ? `The server is temporarily busy or waking up (HTTP ${response.status}). Please try again in a few seconds.`
+      : 'The server sent an unexpected response. Please try again.'
+  }));
   if (response.status === 401) csrfToken = null;
   if (!response.ok) throw Object.assign(new Error(result.error || 'Something went wrong. Try again.'), { status: response.status, requestId: result.requestId, retryAfter: result.retryAfter });
   if (result.csrfToken) csrfToken = result.csrfToken;

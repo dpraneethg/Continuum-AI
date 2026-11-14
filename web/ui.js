@@ -746,6 +746,20 @@ app.addEventListener('submit', async (event) => {
         state.tab = 'conversation';
         state.reflection = null;
         state.compare = null;
+        const initialText = (body.issueDesc || body.title || '').trim();
+        if (initialText) {
+          try {
+            await api('chat', {
+              body: {
+                ticketId: result.ticketId,
+                message: initialText,
+                memory: state.memory,
+              },
+            });
+          } catch (chatErr) {
+            console.warn('Initial automated chat prompt failed:', chatErr);
+          }
+        }
       }
       if (kind === 'book' || kind === 'cancel') state.tab = 'appointments';
       state.notice =

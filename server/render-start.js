@@ -27,6 +27,15 @@ const handler = createHandler({
   },
 });
 
+// Backfill any previously reviewed fixes so they have active confidence and customer confirmation
+try {
+  if (handler.store?.db) {
+    handler.store.db.exec("UPDATE memory_pool SET initial_confidence_score=0.85, customer_confirmed=1 WHERE locally_reviewed=1 AND initial_confidence_score<0.85");
+  }
+} catch (e) {
+  console.warn('Backfill approved fixes notice:', e.message);
+}
+
 const server = createServer((req, res) => {
   // ── Immediate Health Checks ─────────────────────────────────────────
   if (req.url === '/health' || req.url === '/api/health') {

@@ -63,6 +63,7 @@ export default async function handler(req, res) {
         headers,
         body: bodyData,
         redirect: 'manual',
+        signal: AbortSignal.timeout(58000),
       });
 
       res.statusCode = upstream.status;

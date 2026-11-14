@@ -492,8 +492,8 @@ export function createMemoryPool(store, config = {}, { embedding = createEmbeddi
       if (!r) throw fault(404, 'Resolution not found.');
       if (r.status !== 'flagged_for_review') throw fault(409, 'This resolution no longer needs review.');
       if (reviewRevision !== undefined && reviewRevision !== r.reuse_failure_count) throw fault(409, 'Another failure report arrived. Refresh before completing the review.');
-      sql.prepare('UPDATE memory_pool SET status=?,consecutive_failures=CASE WHEN ?=\'keep\' THEN 0 ELSE consecutive_failures END,locally_reviewed=1,review_note=?,flagged_reason=CASE WHEN ?=\'keep\' THEN NULL ELSE flagged_reason END,updated_at=? WHERE id=? AND company_id=?')
-        .run(decision === 'keep' ? 'active' : 'retired', decision, cleanNote.text, decision, now(), r.id, staff.companyId);
+      sql.prepare("UPDATE memory_pool SET status=?,consecutive_failures=CASE WHEN ?='keep' THEN 0 ELSE consecutive_failures END,locally_reviewed=1,initial_confidence_score=CASE WHEN ?='keep' THEN MAX(initial_confidence_score, 0.85) ELSE initial_confidence_score END,customer_confirmed=CASE WHEN ?='keep' THEN 1 ELSE customer_confirmed END,review_note=?,flagged_reason=CASE WHEN ?='keep' THEN NULL ELSE flagged_reason END,updated_at=? WHERE id=? AND company_id=?")
+        .run(decision === 'keep' ? 'active' : 'retired', decision, decision, decision, cleanNote.text, decision, now(), r.id, staff.companyId);
       sql.prepare("UPDATE follow_through_tasks SET status='completed',processed_at=?,outcome_json=? WHERE company_id=? AND memory_id=? AND task_type='failed_fix_review' AND status='pending'")
         .run(now(), JSON.stringify({ decision, note }), staff.companyId, r.id);
       return passportView(scoped(staff.companyId, staff.chatbotId, r.id));

@@ -12,3 +12,4 @@ data/
 # ChromaDB and Chroma data (the index is rebuildable)
 data/chroma/
 .chroma-venv/
+.vercel

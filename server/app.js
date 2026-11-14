@@ -61,7 +61,7 @@ export function createHandler({ file, config = process.env, service, vectorClien
   const followThrough = createFollowThrough(store, { delivery, config });
   const reuse = createReuse(store, memory, providerActions, memoryPool);
   const learning = createLearning(store, memory, companies, config, reuse, providerActions, { memoryPool, followThrough, shadow });
-  const troubleshooting = createTroubleshooting(store, learning, reuse, providerActions, { memoryPool, followThrough, suggestionMode: config.SUGGESTION_MODE ?? process.env.SUGGESTION_MODE, shadow, explainer: createFixExplainer(config, { fetchImpl: config.__explainFetch || null }) });
+  const troubleshooting = createTroubleshooting(store, learning, reuse, providerActions, { memoryPool, followThrough, suggestionMode: config.SUGGESTION_MODE ?? process.env.SUGGESTION_MODE ?? 'auto_first', shadow, explainer: createFixExplainer(config, { fetchImpl: config.__explainFetch || null }) });
   // Follow-through deadlines run on the integrations worker tick, not per web request.
   // Each task is an independent worker lane (own timeout, backoff and status): a slow database sync cannot block email, indexing or follow-through.
   delivery.register(() => followThrough.tick(), { name: 'follow-through', timeoutMs: 30000 });

@@ -423,7 +423,7 @@ async function mapConcurrent(items, concurrency, fn) {
 
 /** Prefer the model's structure when it is grounded; fall back to the rule draft for anything it could not support. */
 async function improve(drafter, ruleDraft, sourceText, kind, budget, startTime = 0) {
-  if (!drafter || budget.left <= 0 || (startTime && Date.now() - startTime > 25000)) return ruleDraft;
+  if (!drafter || budget.left <= 0 || (startTime && Date.now() - startTime > 15000)) return ruleDraft;
   budget.left--;
   let m;
   try { m = await drafter.draft(sourceText, kind); } catch { budget.failed++; return { ...ruleDraft, issues: [...ruleDraft.issues, 'the model was unavailable, so this was drafted by rules'] }; }

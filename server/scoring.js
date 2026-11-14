@@ -14,7 +14,7 @@ export const THRESHOLDS = Object.freeze({
   consecutiveFailures: 2, // consecutive failures that flag for review
   minOutcomesForReliability: 2, // reliability rule only applies after this many outcomes
   maxSuggestions: 3,
-  partialHybrid: 0.65, // a generic, only partly confirmed environment stays in play from this S_hybrid up (with S_compat 0.5)
+  partialHybrid: 0.45, // a generic, only partly confirmed environment stays in play from this S_hybrid up (with S_compat 0.8)
 });
 export const AUTHOR_DEFAULTS = Object.freeze({ verifiedImport: 0.85, newStaff: 0.75, unverifiedImport: 0.5, standardPlaybook: 0.85 });
 
@@ -244,7 +244,7 @@ export function compatibilityGate({ applicability = {}, safety = {}, facts: stat
   // other mandatory requirement), and nothing else in the environment text is unaccounted for. Mandatory facts still ask first.
   if (evaluation.status === 'unknown' && missingConditions.length && missingConditions.every((c) => c.generic) && !unparsedMissing.length) {
     const verifiedOn = applicability.environmentText || missingConditions.map(describeCondition).join('; ');
-    return { eligible: true, partial: true, status: 'partial', compat: 0.5, reasons: ['environment not fully confirmed: ' + verifiedOn], advisory: `Note: This solution was verified on ${verifiedOn}. Steps may vary slightly for your setup.`, verifiedOn, evaluation };
+    return { eligible: true, partial: true, status: 'partial', compat: 0.8, reasons: ['environment not fully confirmed: ' + verifiedOn], advisory: `Note: This solution was verified on ${verifiedOn}. Steps may vary slightly for your setup.`, verifiedOn, evaluation };
   }
   if (evaluation.status === 'unknown') return { eligible: false, status: 'unknown', compat: 0, reasons: evaluation.missing, evaluation };
   let compat = 1;
