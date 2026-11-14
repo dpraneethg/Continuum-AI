@@ -21,8 +21,4 @@ services:
       - key: ENABLE_OUTBOX_WORKER
         value: "true"
       - key: DATABASE_FILE
-        value: /opt/render/project/src/data/continuum.sqlite
-    disk:
-      name: continuum-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
+        value: ./data/continuum.sqlite
