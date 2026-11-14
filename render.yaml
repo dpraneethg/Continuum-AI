@@ -12,10 +12,7 @@ services:
       - key: NODE_ENV
         value: production
       - key: APP_URL
-        fromRenderService:
-          type: web
-          name: continuum-api
-          property: host
+        value: https://continuum-ai-six.vercel.app
       - key: FRONTEND_URL
         value: https://continuum-ai-six.vercel.app
       - key: ENABLE_OUTBOX_WORKER
