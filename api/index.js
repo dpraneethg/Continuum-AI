@@ -45,24 +45,34 @@ export default async function handler(req, res) {
       const targetUrl = backend + url.pathname + url.search;
       const headers = {};
       for (const [k, v] of Object.entries(req.headers)) {
-        if (k.toLowerCase() === 'host') continue;
+        const lower = k.toLowerCase();
+        if (lower === 'host' || lower === 'accept-encoding') continue;
         headers[k] = v;
       }
       headers.host = new URL(backend).host;
 
+      let bodyData;
+      if (!['GET', 'HEAD'].includes(req.method)) {
+        const chunks = [];
+        for await (const chunk of req) chunks.push(chunk);
+        if (chunks.length > 0) bodyData = Buffer.concat(chunks);
+      }
+
       const upstream = await fetch(targetUrl, {
         method: req.method,
         headers,
-        body: ['GET', 'HEAD'].includes(req.method) ? undefined : req,
-        duplex: 'half',
+        body: bodyData,
         redirect: 'manual',
       });
+
       res.statusCode = upstream.status;
       for (const [k, v] of upstream.headers) {
-        if (k.toLowerCase() === 'transfer-encoding') continue;
+        const lower = k.toLowerCase();
+        if (['transfer-encoding', 'content-encoding', 'content-length'].includes(lower)) continue;
         res.setHeader(k, v);
       }
       const buf = Buffer.from(await upstream.arrayBuffer());
+      res.setHeader('Content-Length', String(buf.length));
       return res.end(buf);
     } catch (err) {
       res.statusCode = 502;

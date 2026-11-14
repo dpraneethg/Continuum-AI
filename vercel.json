@@ -10,8 +10,7 @@
     }
   },
   "routes": [
-    { "src": "/vendor/three.module.min.js", "dest": "/node_modules/three/build/three.module.min.js" },
-    { "src": "/vendor/three.core.min.js", "dest": "/node_modules/three/build/three.core.min.js" },
+    { "src": "/vendor/(.*)", "dest": "/web/vendor/$1" },
     { "src": "/(favicon\\.svg|og-image\\.png|styles\\.css|theme\\.css|site\\.css|demo\\.css)$", "dest": "/web/$1" },
     { "src": "/(theme-init\\.js|ui\\.js|client\\.js|auth-ui\\.js|form-kit\\.js|toast\\.js|palette\\.js|fx\\.js|scene\\.js|pages\\.js|team\\.js|staff-account\\.js|staff-access-ui\\.js|data-sources-ui\\.js|knowledge-import-ui\\.js|connector-ui\\.js|operator\\.js|tour\\.js|demo\\.js|workspace-control\\.js|chatbot-config\\.js)$", "dest": "/web/$1" },
     { "src": "/api/(.*)", "dest": "/api/index.js" },
